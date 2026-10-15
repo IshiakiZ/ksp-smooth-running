@@ -1,0 +1,29 @@
+Smooth Running @VERSION@
+for Kerbal Space Program 1.12.x
+
+The game made faster where it wastes its time, each fix measured in the game first.
+This version mends the terrain's update: the game starts it again at every load and
+scene change and never stops the last one, so after a while of play a world's terrain
+is updated dozens of times a frame. Smooth Running ends the extra copies.
+
+INSTALL
+  This mod needs Keystone, the base it stands on, and Harmony (HarmonyKSP), which are
+  separate downloads:
+    https://spacedock.info/mod/4665/Keystone
+    https://github.com/KSPModdingLibs/HarmonyKSP
+  Copy Keystone's folder (Keystone) and Harmony's (000_Harmony) into your KSP's GameData
+  folder, and the SmoothRunning folder from this download beside them, and start the
+  game. Without them the game does not load this mod. To remove it, delete the
+  SmoothRunning folder.
+
+USE
+  It is on as installed. Its switches, and how many extra terrain updates it has ended,
+  are in the Keystone window: the keystone button on the game's toolbar, or Option-K on
+  a Mac and Alt-K elsewhere. It changes some of the game's code as the game runs; nothing
+  on disk is touched. Switch a fix off and that part is the game's own again.
+
+WHERE IT WORKS
+  Made and tried on a Mac. On Windows it is the same code, with no shaders and nothing of
+  one system's in it, but nobody has run it there yet. Nobody has run it on Linux yet.
+
+Everything else: https://github.com/IshiakiZ/ksp-smooth-running
