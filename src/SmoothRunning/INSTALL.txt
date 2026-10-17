@@ -2,9 +2,16 @@ Smooth Running @VERSION@
 for Kerbal Space Program 1.12.x
 
 The game made faster where it wastes its time, each fix measured in the game first.
-This version mends the terrain's update: the game starts it again at every load and
-scene change and never stops the last one, so after a while of play a world's terrain
-is updated dozens of times a frame. Smooth Running ends the extra copies.
+This version mends three things:
+  * the terrain's update: the game starts it again at every load and scene change and
+    never stops the last one, so after a while of play a world's terrain is updated
+    dozens of times a frame. Smooth Running ends the extra copies.
+  * handlers of things that are gone: every scene change leaves hundreds more on the
+    game's events, keeping the parts of craft long gone in memory. They are cleared at
+    every scene change.
+  * one clean-up too many at every scene change: of the three times Unity goes through
+    everything loaded, a fifth of a second each, the one the game asks for itself never
+    finds anything. It is left out.
 
 INSTALL
   This mod needs Keystone, the base it stands on, and Harmony (HarmonyKSP), which are
@@ -17,8 +24,8 @@ INSTALL
   SmoothRunning folder.
 
 USE
-  It is on as installed. Its switches, and how many extra terrain updates it has ended,
-  are in the Keystone window: the keystone button on the game's toolbar, or Option-K on
+  It is on as installed. Its switches, and what each fix has done, are in the Keystone
+  window: the keystone button on the game's toolbar, or Option-K on
   a Mac and Alt-K elsewhere. It changes some of the game's code as the game runs; nothing
   on disk is touched. Switch a fix off and that part is the game's own again.
 
