@@ -343,6 +343,16 @@ namespace SmoothRunning
             {
                 boxFrame = Time.frameCount; boxParts = v.parts.Count;
                 Vector3 least = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue), most = -least;
+                // (The colliders as they stand now. In a frame drawn between the game's physics steps Motion has carried the craft's
+                // models on, and the colliders that hang under them, and the game has the physics follow a moved transform at once
+                // (its physics settings: transforms synced by themselves); but not the part itself. Measured against the root part as
+                // physics left it, the box lay ahead of the craft by as far as the craft had been carried in the frame it was
+                // measured in, and stayed there until measured again: at a lift-off's hundred metres a second a metre or two, in orbit
+                // up to forty, where it missed the craft altogether and the craft was blended as the ground streaming past it, cut to
+                // a tenth of the picture: the owner's capsule "a blur" (2026-10-21, at 2 km/s). So against the root part as it is drawn.)
+                Physics.SyncTransforms();
+                Vector3 rootAt = Keystone.Motion.CarryWith(v, root.position);
+                Quaternion unturn = Quaternion.Inverse(Keystone.Motion.TurnWith(v, root.rotation));
                 // (from the parts' colliders, their solid shape: their drawn bounds take in what rides on them, an engine's smoke
                 // trail kilometres long among it, and a box that size took in the sky behind the craft and turned it with the craft)
                 foreach (Part part in v.parts)
@@ -355,9 +365,9 @@ namespace SmoothRunning
                         Bounds b = col.bounds;
                         if (b.extents.sqrMagnitude > 1e6f) continue;
                         any = true;
-                        Enclose(b, root, ref least, ref most);
+                        Enclose(b, rootAt, unturn, ref least, ref most);
                     }
-                    if (!any) Enclose(new Bounds(part.transform.position, Vector3.one), root, ref least, ref most);
+                    if (!any) Enclose(new Bounds(Keystone.Motion.CarryWith(v, part.transform.position), Vector3.one), rootAt, unturn, ref least, ref most);
                 }
                 if (least.x > most.x) { least = -Vector3.one; most = Vector3.one; }
                 // (a little larger than the craft: its edges are not cut off from it)
@@ -365,12 +375,12 @@ namespace SmoothRunning
                 boxHalf = (most - least) * 0.5f + Vector3.one * 0.3f;
             }
 
-            static void Enclose(Bounds b, Transform root, ref Vector3 least, ref Vector3 most)
+            static void Enclose(Bounds b, Vector3 rootAt, Quaternion unturn, ref Vector3 least, ref Vector3 most)
             {
                 for (int k = 0; k < 8; k++)
                 {
                     Vector3 corner = b.center + Vector3.Scale(b.extents, new Vector3((k & 1) != 0 ? 1f : -1f, (k & 2) != 0 ? 1f : -1f, (k & 4) != 0 ? 1f : -1f));
-                    Vector3 local = root.InverseTransformPoint(corner);
+                    Vector3 local = unturn * (corner - rootAt);
                     least = Vector3.Min(least, local); most = Vector3.Max(most, local);
                 }
             }

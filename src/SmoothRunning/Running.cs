@@ -32,7 +32,7 @@ namespace SmoothRunning
 
     public static class Running
     {
-        public const string Version = "0.3.0";
+        public const string Version = "0.3.1";
         internal const string Id = "smoothrunning";
         static Harmony harmony;
         static Mod mod;

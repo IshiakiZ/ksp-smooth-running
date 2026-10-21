@@ -61,8 +61,8 @@ under **Smooth Running**: a switch for each fix, and what each has done this gam
 
 ## Works on
 
-Mac: tried. Windows 11 (Direct3D 11 and OpenGL): run 2026-10-20, its frame blending's shader built for Direct3D and loaded on
-both; a launch filmed on each with no doubled rocket. Linux: never run.
+Mac: tried. Windows 11 (Direct3D 11 and OpenGL): 0.3.0 tried (the blending's shader built for Direct3D, a launch on each);
+0.3.1's mend is C# and has run on the Mac only so far. Linux: never run.
 
 ## Licence
 
