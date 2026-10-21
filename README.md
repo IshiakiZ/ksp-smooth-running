@@ -57,7 +57,7 @@ Copy the `SmoothRunning` folder from the download into your KSP's `GameData`, be
 It is on as installed. In the Keystone window (the keystone button on the game's toolbar, or Alt-K; Option-K on a Mac),
 under **Smooth Running**: a switch for each fix, and what each has done this game.
 
-![Smooth Running's page in the Keystone window: the switch for the terrain fix and what it has done](src/SmoothRunning/img/smooth-running-page.jpg)
+![Smooth Running's page in the Keystone window: each of its fixes with its switch, and what they have done this game](src/SmoothRunning/img/smooth-running-page.jpg)
 
 ## Works on
 
