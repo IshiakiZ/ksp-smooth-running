@@ -2,19 +2,21 @@ Smooth Running @VERSION@
 for Kerbal Space Program 1.12.x
 
 The game made faster where it wastes its time, each fix measured in the game first.
-This version mends three things:
+What it mends:
   * the terrain's update: the game starts it again at every load and scene change and
-    never stops the last one, so after a while of play a world's terrain is updated
-    dozens of times a frame. Smooth Running ends the extra copies.
-  * handlers of things that are gone: every scene change leaves hundreds more on the
-    game's events, keeping the parts of craft long gone in memory. They are cleared at
-    every scene change.
-  * one clean-up too many at every scene change: of the three times Unity goes through
-    everything loaded, a fifth of a second each, the one the game asks for itself never
-    finds anything. It is left out.
+    never stops the last one. Smooth Running ends the extra copies.
+  * handlers of things that are gone, cleared at every scene change.
+  * one clean-up too many at every scene change, left out.
+  * (0.3.0) each frame at its own moment: every craft drawn where it has got to when the
+    frame is drawn, so the world no longer goes in jumps.
+  * (0.3.0) frame blending: each frame blended along the way things moved, as a film
+    camera's shutter blends it; the craft the camera follows stays sharp.
+  * (0.3.0) the first lift-off's code compiled a little at a time beforehand.
+  * (0.3.0) the terrain held to 8 ms a frame under time warp.
+  * (0.3.0) a launch's terrain built once, not twice: about a second off every launch.
 
 INSTALL
-  This mod needs Keystone, the base it stands on, and Harmony (HarmonyKSP), which are
+  This mod needs Keystone 0.9 or later, the base it stands on, and Harmony (HarmonyKSP), which are
   separate downloads:
     https://spacedock.info/mod/4665/Keystone
     https://github.com/KSPModdingLibs/HarmonyKSP
@@ -30,7 +32,8 @@ USE
   on disk is touched. Switch a fix off and that part is the game's own again.
 
 WHERE IT WORKS
-  Made and tried on a Mac. On Windows it is the same code, with no shaders and nothing of
-  one system's in it, but nobody has run it there yet. Nobody has run it on Linux yet.
+  Made and tried on a Mac, and tried on Windows 11 (Direct3D 11 and OpenGL) on
+  2026-10-20: the frame blending's shader built for Direct3D and loaded on both, a launch
+  filmed on each with no doubled rocket. Nobody has run it on Linux yet.
 
 Everything else: https://github.com/IshiakiZ/ksp-smooth-running

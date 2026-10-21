@@ -4,3 +4,10 @@ bin/
 obj/
 __pycache__/
 .DS_Store
+tools/unityshaders/Bundles/
+tools/unityshaders/Library/
+tools/unityshaders/Temp/
+tools/unityshaders/Logs/
+tools/unityshaders/Packages/
+tools/unityshaders/ProjectSettings/
+tools/unityshaders/UserSettings/

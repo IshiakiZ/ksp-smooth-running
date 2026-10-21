@@ -32,11 +32,15 @@ namespace SmoothRunning
 
     public static class Running
     {
-        public const string Version = "0.2.0";
+        public const string Version = "0.3.0";
         internal const string Id = "smoothrunning";
         static Harmony harmony;
         static Mod mod;
-        internal static Toggle terrain, handlers, scenes;
+        internal static Toggle terrain, handlers, scenes, motion, blend, ahead, warpTerrain, launchTerrain;
+        internal static Slider shutter;
+        internal static bool motionBroken;
+        /// <summary>How many looks along the way each pixel moved the frame blending takes.</summary>
+        internal const int Looks = 12;
 
         public static void Setup()
         {
@@ -46,6 +50,12 @@ namespace SmoothRunning
                 terrain = mod.Toggle("terrain", "One update per terrain sphere", true, "The game starts a world's terrain update again at every load and scene change without stopping the last one: after a while of play it runs dozens of times a frame. Off: as the game has it.");
                 scenes = mod.Toggle("scenes", "One clean-up fewer at every scene change", true, "At every scene change the game has Unity go through all its loaded things for any no longer used, a fifth of a second each time, three times over; the game asks for the second itself, right after Unity has done the first, and it never finds anything. With this on, that second one is left out. Off: as the game has it.");
                 handlers = mod.Toggle("handlers", "Clear the handlers of things that are gone", true, "The game's events keep a list of whom to tell. Things that are destroyed stay on those lists, and the game's records of which parts share resources never take themselves off: every scene change leaves hundreds more, still told of every event and keeping the parts of craft long gone in memory. With this on they are cleared at every scene change. Off: as the game has it.");
+                motion = mod.Toggle("motion", "Each frame at its own moment", true, "The game moves everything in steps of a fiftieth of a second and draws the pose the last step left, so the world on screen goes in jumps: at 45 frames a second it beats five times a second, at 120 it stands still in most frames. With this on, every craft (and the camera with the one it follows) is carried on to where it has got to by the moment each frame is drawn, and put back after: the world flows evenly at any frame rate. Physics never sees it. Off: as the game has it.");
+                blend = mod.Toggle("blend", "Frame blending", true, "Each frame blended along the way each thing in it moved since the last one, as a film camera's shutter blends it: at a low frame rate the jumps between frames read as motion, not as a string of stills. The ground and sky stream past; the craft the camera follows moves with it and stays sharp. At sixty frames a second it is slight, at ten long. Off: each frame as sharp as the game draws it.");
+                ahead = mod.Toggle("ahead", "The first lift-off's code made ready", true, "The game's code is compiled the first time it runs, and a game's first lift-off runs some 140 of its methods for the first time, 11 ms of compiling in the busiest frames of a flight (and the smoke's, flames' and lamps' mods 21 ms more, where they are installed). With this on they are compiled a few seconds into the first flight scene instead, a little in each frame. Off: as the game has it.");
+                warpTerrain = mod.Toggle("warpterrain", "The terrain spread over frames under time warp", true, "The game lets a world's terrain take up to a tenth of a second of any frame building the ground it needs, and under time warp, with the craft racing over the ground, it does at every change of the rate: frames of a tenth of a second and more, the picture stopping. With this on, while time is warped on rails (where nothing meets the ground) and for a few seconds after, high up, it takes at most 8 ms of a frame, its building going on in the frames after; the nearest ground first, as the game has it. Off: as the game has it.");
+                launchTerrain = mod.Toggle("launchterrain", "A launch's terrain built once", true, "Setting a craft on its launch site, the game builds the home world's terrain round the site, a second and more, and then tells every world's terrain to start again: the one just built is thrown away and built a second time on the spot. With this on, that second time is left out. Off: as the game has it.");
+                shutter = mod.Slider("shutter", "Frame blending: shutter", 180f, 45f, 360f, " degrees", 0, "How much of each frame's motion is blended, as a film camera's shutter angle: 180 degrees (half of it) is a film's, 360 all of it (the smoothest), 90 a sharper look.");
                 mod.Panel = Readout;
             }
             harmony = new Harmony(Id);
@@ -53,7 +63,9 @@ namespace SmoothRunning
             try { harmony.UnpatchAll(Id); } catch (Exception) { }
             TerrainUpdates.Patch(harmony);
             SceneChanges.Patch(harmony);
+            LaunchTerrain.Patch(harmony);
             Handlers.Hook();
+            Motion.Hook();
         }
 
         static void Readout()
@@ -61,6 +73,11 @@ namespace SmoothRunning
             GUILayout.Label(TerrainUpdates.Said());
             GUILayout.Label(SceneChanges.Said());
             GUILayout.Label(Handlers.Said());
+            GUILayout.Label(Motion.Said());
+            GUILayout.Label(Ahead.Said());
+            GUILayout.Label(WarpTerrain.Said());
+            GUILayout.Label(LaunchTerrain.Said());
+            GUILayout.Label("Frame blending: " + (string.IsNullOrEmpty(Blending.Said) ? "not in flight" : Blending.Said));
         }
 
 #if DEV
@@ -69,8 +86,11 @@ namespace SmoothRunning
         /// handlers pile up from one scene change to the next.)</summary>
         public static string Sweep() => Handlers.Sweep();
 
+        /// <summary>(Development build: the judder index; see Motion.Judder.)</summary>
+        public static string Judder(string arg) => Motion.Judder(arg);
+
         /// <summary>(Development build: what each fix says on the mod's page.)</summary>
-        public static string Status() => TerrainUpdates.Said() + "\n" + SceneChanges.Said() + "\n" + Handlers.Said();
+        public static string Status() => TerrainUpdates.Said() + "\n" + SceneChanges.Said() + "\n" + Handlers.Said() + "\n" + Ahead.Said() + "\n" + WarpTerrain.Said() + "\n" + LaunchTerrain.Said();
 
         /// <summary>(Development build: the managed memory in use after a full collection, in MB. A hitch of its own: for tests.)</summary>
         public static string Memory()
@@ -151,6 +171,46 @@ namespace SmoothRunning
             var said = new System.Text.StringBuilder();
             foreach (var r in rows) said.Append(r.Key).Append('\t').Append(r.Value).Append('\n');
             return said.ToString();
+        }
+
+        /// <summary>(Development build, Warm Start 9.1, 2026-10-20: the game parents every part it compiles under its part loader's one
+        /// object, and on a made-up install of 4,740 parts a part's compiling grew with the parts already compiled. Here N copies of an
+        /// object of 60 transforms are parented one by one into one root, as the game does, and each parenting timed; "N" (2000 unless
+        /// given), "flat" to give each copy a root of its own instead, "buckets" to put them in buckets of 100 under the one root, "solid" for
+        /// pieces with colliders and renderers. Everything made is destroyed after.)</summary>
+        public static string Hierarchy(string arg)
+        {
+            string[] w = (arg ?? "").Split(' ');
+            int n = w.Length > 0 && int.TryParse(w[0], out int k) ? k : 2000;
+            bool flat = Array.IndexOf(w, "flat") >= 0, buckets = Array.IndexOf(w, "buckets") >= 0, solid = Array.IndexOf(w, "solid") >= 0;
+            var proto = new GameObject("Smooth Running hierarchy test");
+            for (int i = 0; i < 59; i++)
+            {
+                var piece = new GameObject("piece " + i);
+                piece.transform.parent = i < 10 ? proto.transform : proto.transform.GetChild(i % 10);
+                // ("solid": each piece with a collider and a drawn cube, as a part's model has)
+                if (solid) { piece.AddComponent<BoxCollider>(); piece.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx"); piece.AddComponent<MeshRenderer>(); }
+            }
+            var root = new GameObject("Smooth Running hierarchy root");
+            var made = new List<GameObject>();
+            var said = new System.Text.StringBuilder(flat ? "each copy a root of its own:\n" : buckets ? "into one root, in buckets of 100 under it:\n" : "into one root:\n");
+            Transform bucket = null;
+            double sum = 0, block = 0;
+            for (int c = 0; c < n; c++)
+            {
+                GameObject g = UnityEngine.Object.Instantiate(proto);
+                made.Add(g);
+                long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (buckets && c % 100 == 0) { bucket = new GameObject("bucket").transform; bucket.parent = root.transform; }
+                if (!flat) g.transform.parent = buckets ? bucket : root.transform;
+                g.SetActive(false);
+                double us = (System.Diagnostics.Stopwatch.GetTimestamp() - t0) * 1e6 / System.Diagnostics.Stopwatch.Frequency;
+                sum += us; block += us;
+                if ((c + 1) % (n / 8) == 0) { said.Append("  by ").Append(c + 1).Append(": ").Append((block / (n / 8)).ToString("F1")).Append(" us each\n"); block = 0; }
+            }
+            foreach (GameObject g in made) UnityEngine.Object.Destroy(g);
+            UnityEngine.Object.Destroy(root); UnityEngine.Object.Destroy(proto);
+            return said.Append("  in all ").Append((sum / 1000.0).ToString("F0")).Append(" ms for ").Append(n).Append(" copies of 60 transforms").ToString();
         }
 
         static ShadowQuality shadowsWere = (ShadowQuality)(-1);
