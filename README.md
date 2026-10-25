@@ -62,7 +62,7 @@ under **Smooth Running**: a switch for each fix, and what each has done this gam
 ## Works on
 
 Mac: tried. Windows 11 (Direct3D 11 and OpenGL): 0.3.0 tried (the blending's shader built for Direct3D, a launch on each);
-0.3.1's mend is C# and has run on the Mac only so far. Linux: never run.
+0.3.1's mend is C# and has run on the Mac only so far; 0.3.2's (the camera behind a kerbal) made on Windows and tried on both. Linux: never run.
 
 ## Licence
 

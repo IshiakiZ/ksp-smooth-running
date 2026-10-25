@@ -206,7 +206,11 @@ namespace SmoothRunning
                     for (int j = 0; j < held.Length; j++)
                     {
                         Transform m = held[j];
-                        if (m == null) continue;
+                        // (the camera's pivot is left to the pivot's own carrying below. Behind a kerbal on foot it hangs from the kerbal's
+                        // part, and until 2026-10-25 it was carried as one of the part's models, turn and all, in every view: on the PC a
+                        // kerbal holding a plane's ladder, whose body the game gives a turning it never makes, swung the picture over
+                        // for a frame six times a second, as the frames and the steps fell out of step)
+                        if (m == null || m == pivot) continue;
                         Vector3 at = m.position;
                         Quaternion turn = m.rotation;
                         moved.Add(m); movedWas.Add(at); movedTurn.Add(turn);
