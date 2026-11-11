@@ -4,7 +4,7 @@ The game made faster where it wastes its time, each fix measured in the game fir
 
 ![What the game's terrain update costs each frame, as the game ships and with Smooth Running: 6.0 ms and 0.23 ms](src/SmoothRunning/img/smooth-running.png)
 
-For Kerbal Space Program 1.12.x. **Needs [Keystone](https://github.com/IshiakiZ/ksp-keystone) 0.9 or later** ([on SpaceDock](https://spacedock.info/mod/4665/Keystone))
+For Kerbal Space Program 1.12.x. **Needs [Keystone](https://github.com/IshiakiZ/ksp-keystone) 0.11 or later** ([on SpaceDock](https://spacedock.info/mod/4665/Keystone))
 and **Harmony** (HarmonyKSP), both separate downloads: this mod changes some of the game's own code as it runs (nothing on
 disk), and does not load without them.
 
