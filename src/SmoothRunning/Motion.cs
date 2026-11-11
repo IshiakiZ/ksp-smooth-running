@@ -116,6 +116,7 @@ namespace SmoothRunning
 #endif
 #if DEV
             if (physFrom < 0) physFrom = Now();
+            if (watchOn && watchFrom == 0) { watchFrame = Time.frameCount; System.Threading.Interlocked.Exchange(ref watchFrom, clock.ElapsedTicks); }
 #endif
         }
 
@@ -126,6 +127,7 @@ namespace SmoothRunning
             double t = Now();
             if (physFrom >= 0) { physMs += t - physFrom; physFrom = -1; }
             scriptsFrom = t;
+            if (watchOn && watchFrom == 0) { watchFrame = Time.frameCount; System.Threading.Interlocked.Exchange(ref watchFrom, clock.ElapsedTicks); }
 #endif
         }
 
@@ -146,6 +148,12 @@ namespace SmoothRunning
             lateDone = Time.frameCount;
 #if DEV
             if (scriptsFrom >= 0) { scriptsMs += Now() - scriptsFrom; scriptsFrom = -1; }
+            if (watchOn)
+            {
+                long from = System.Threading.Interlocked.Exchange(ref watchFrom, 0);
+                double ms = (clock.ElapsedTicks - from) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                if (from != 0 && ms >= watchOver) lock (watchSeen) watchSeen.Add("frame " + watchFrame + ": its steps and scripts took " + ms.ToString("F1") + " ms");
+            }
 #endif
         }
         static int lateDone = -1;
@@ -331,6 +339,44 @@ namespace SmoothRunning
                 + "; slice " + (UnityEngine.Scripting.GarbageCollector.incrementalTimeSliceNanoseconds / 1e6).ToString("F1") + " ms";
         }
 
+        // (What the game is in when a frame's steps and scripts run long: "watch N" begins, "watch?" reads. Another thread looks
+        // every millisecond how long the frame's steps and scripts have been going, and past N ms asks Mono for every thread's
+        // stack (its own Thread.Mono_GetStackTraces, found by name: not a thing Unity offers), keeping the main thread's, again
+        // every few milliseconds until the scripts are through. For the frames of 50 to 88 ms that fall with nothing going on,
+        // 2026-11-10.)
+        static volatile bool watchOn; static long watchFrom; static int watchFrame; static double watchOver = 11;
+        static System.Threading.Thread watchMain, watcher; static System.Reflection.MethodInfo watchAsk;
+        static readonly List<string> watchSeen = new List<string>();
+        static void WatchLoop()
+        {
+            int lastFrame = -1; double lastAt = 0;
+            while (watchOn)
+            {
+                System.Threading.Thread.Sleep(1);
+                long from = System.Threading.Interlocked.Read(ref watchFrom);
+                if (from == 0) continue;
+                double ms = (clock.ElapsedTicks - from) * 1000.0 / System.Diagnostics.Stopwatch.Frequency;
+                int frame = watchFrame;
+                if (ms < watchOver || (frame == lastFrame && ms - lastAt < 4)) continue;
+                lastFrame = frame; lastAt = ms;
+                try
+                {
+                    var all = watchAsk.Invoke(null, null) as Dictionary<System.Threading.Thread, System.Diagnostics.StackTrace>;
+                    System.Diagnostics.StackTrace trace;
+                    if (all == null || !all.TryGetValue(watchMain, out trace) || trace == null) { lock (watchSeen) watchSeen.Add("frame " + frame + " at " + ms.ToString("F1") + " ms: no stack for the main thread"); continue; }
+                    var say = new System.Text.StringBuilder();
+                    say.Append("frame ").Append(frame).Append(" at ").Append(ms.ToString("F1")).Append(" ms:");
+                    for (int k = 0; k < Mathf.Min(trace.FrameCount, 16); k++)
+                    {
+                        var m = trace.GetFrame(k).GetMethod();
+                        say.Append(k == 0 ? " " : " < ").Append(m == null ? "?" : (m.DeclaringType != null ? m.DeclaringType.FullName + "." : "") + m.Name);
+                    }
+                    lock (watchSeen) if (watchSeen.Count < 400) watchSeen.Add(say.ToString());
+                }
+                catch (Exception e) { lock (watchSeen) if (watchSeen.Count < 400) watchSeen.Add("frame " + frame + ": " + (e.InnerException ?? e).GetType().Name + " " + (e.InnerException ?? e).Message); }
+            }
+        }
+
         static bool garbageOn; static int garbageFrames; static long garbageBytes, garbageLast;
         static void Garbage()
         {
@@ -430,6 +476,24 @@ namespace SmoothRunning
                 return "managed heap in use " + (GC.GetTotalMemory(false) / 1048576.0).ToString("F0") + " MB; Unity's heap " + (UnityEngine.Profiling.Profiler.GetMonoHeapSizeLong() / 1048576.0).ToString("F0") + " MB, used " + (UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong() / 1048576.0).ToString("F0") + " MB; " + GC.CollectionCount(0) + " collections so far";
             if (a == "hitch") { hitchDts.Clear(); hitchGc.Clear(); hitchCollections = GC.CollectionCount(0); hitchFrame = Time.frameCount; hitchOn = true; return "timing every frame"; }
             if (a == "hitch?") return HitchSay();
+            if (a.StartsWith("watch") && a != "watch?")
+            {
+                if (watchOn) return "watching already";
+                var flags = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+                watchAsk = typeof(System.Threading.Thread).GetMethod("Mono_GetStackTraces", flags);
+                if (watchAsk == null) return "this Mono has no Thread.Mono_GetStackTraces (GetStackTraces: " + (typeof(System.Threading.Thread).GetMethod("GetStackTraces", flags) != null) + ")";
+                if (a.Length > 6) watchOver = double.Parse(a.Substring(6).Trim(), System.Globalization.CultureInfo.InvariantCulture);
+                lock (watchSeen) watchSeen.Clear();
+                watchMain = System.Threading.Thread.CurrentThread; watchFrom = 0; watchOn = true;
+                watcher = new System.Threading.Thread(WatchLoop) { IsBackground = true, Name = "Smooth Running watch" };
+                watcher.Start();
+                return "watching for steps and scripts over " + watchOver.ToString("F0") + " ms";
+            }
+            if (a == "watch?")
+            {
+                watchOn = false;
+                lock (watchSeen) return watchSeen.Count + " lines" + (char)10 + string.Join(((char)10).ToString(), watchSeen.ToArray());
+            }
             if (a.StartsWith("slice ")) { UnityEngine.Scripting.GarbageCollector.incrementalTimeSliceNanoseconds = (ulong)(double.Parse(a.Substring(6).Trim(), System.Globalization.CultureInfo.InvariantCulture) * 1e6); return "the collector's slice " + (UnityEngine.Scripting.GarbageCollector.incrementalTimeSliceNanoseconds / 1e6).ToString("F1") + " ms a frame"; }
             if (a == "gcmode")
                 return "incremental " + UnityEngine.Scripting.GarbageCollector.isIncremental + ", mode " + UnityEngine.Scripting.GarbageCollector.GCMode + ", slice " + UnityEngine.Scripting.GarbageCollector.incrementalTimeSliceNanoseconds + " ns; " + GC.CollectionCount(0) + " collections so far; Unity " + Application.unityVersion;

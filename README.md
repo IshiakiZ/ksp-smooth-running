@@ -55,7 +55,10 @@ Copy the `SmoothRunning` folder from the download into your KSP's `GameData`, be
 ## Use
 
 It is on as installed. In the Keystone window (the keystone button on the game's toolbar, or Alt-K; Option-K on a Mac),
-under **Smooth Running**: a switch for each fix, and what each has done this game.
+under **Smooth Running**: a switch for each fix, and what each has done this game. With Keystone 0.11.0, four finer
+details in its Advanced view: under time warp, the terrain's share of a frame and how long after a warp it keeps it; the
+frame blending's looks along the way and its longest smear.
+[All of them](https://github.com/IshiakiZ/ksp-smooth-running/wiki/How-it-works#on-the-mods-page).
 
 ![Smooth Running's page in the Keystone window: each of its fixes with its switch, and what they have done this game](src/SmoothRunning/img/smooth-running-page.jpg)
 

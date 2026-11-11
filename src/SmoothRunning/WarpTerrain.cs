@@ -21,10 +21,12 @@ namespace SmoothRunning
     /// </summary>
     static class WarpTerrain
     {
+        // (as installed: the page's fine details may set others)
         const float Budget = 0.008f;
         const float After = 5f;
-        // (each sphere held, and its own budget to give back)
+        // (each sphere held, and its own budget to give back; and the budget last given, by which a sphere is known to be ours)
         static readonly Dictionary<PQS, float> held = new Dictionary<PQS, float>();
+        static float given = Budget;
         static float warpSeen = -100f;
         static int warps;
         static string why = "";
@@ -35,7 +37,7 @@ namespace SmoothRunning
             bool warping = TimeWarp.fetch != null && TimeWarp.WarpMode == TimeWarp.Modes.HIGH && TimeWarp.CurrentRate > 1.01f;
             if (warping) warpSeen = Time.unscaledTime;
             Vessel v = FlightGlobals.ActiveVessel;
-            bool want = on && (warping || (Time.unscaledTime - warpSeen < After && v != null && v.altitude > 10000.0));
+            bool want = on && (warping || (Time.unscaledTime - warpSeen < Running.Of(Running.warpAfter, After) && v != null && v.altitude > 10000.0));
             if (!want) { if (held.Count > 0) Back(); return; }
             if (held.Count == 0)
             {
@@ -49,19 +51,24 @@ namespace SmoothRunning
                 }
                 catch (Exception ex) { why = ex.Message; }
             }
-            // (not while the game builds a world's maps all at once: it sets its own budget for that, and puts the last back)
+            // (not while the game builds a world's maps all at once: it sets its own budget for that, and puts the last back. A
+            // sphere at the budget last given is ours, given the page's new one if it has changed, never more than its own)
+            float budget = Running.Of(Running.warpBudget, Budget * 1000f) / 1000f;
             foreach (KeyValuePair<PQS, float> one in held)
             {
                 PQS q = one.Key;
-                if (q != null && !q.isBuildingMaps && q.maxFrameTime > Budget && q.maxFrameTime < 1f) q.maxFrameTime = Budget;
+                if (q == null || q.isBuildingMaps) continue;
+                if (Mathf.Approximately(q.maxFrameTime, given)) { if (!Mathf.Approximately(budget, given)) q.maxFrameTime = Mathf.Min(budget, one.Value); }
+                else if (q.maxFrameTime > budget && q.maxFrameTime < 1f) q.maxFrameTime = budget;
             }
+            given = budget;
         }
 
         /// <summary>Every sphere's own budget back.</summary>
         internal static void Back()
         {
             foreach (KeyValuePair<PQS, float> one in held)
-                if (one.Key != null && !one.Key.isBuildingMaps && Mathf.Approximately(one.Key.maxFrameTime, Budget)) one.Key.maxFrameTime = one.Value;
+                if (one.Key != null && !one.Key.isBuildingMaps && Mathf.Approximately(one.Key.maxFrameTime, given)) one.Key.maxFrameTime = one.Value;
             held.Clear();
         }
 

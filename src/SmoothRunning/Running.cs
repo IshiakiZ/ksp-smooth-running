@@ -9,7 +9,7 @@ using UnityEngine;
 
 #if !DEV
 [assembly: KSPAssembly("SmoothRunning", 0, 1)]
-[assembly: KSPAssemblyDependency("Keystone", 0, 8)]
+[assembly: KSPAssemblyDependency("Keystone", 0, 11)]
 [assembly: KSPAssemblyDependency("HarmonyKSP", 1, 0)]
 #endif
 
@@ -32,15 +32,26 @@ namespace SmoothRunning
 
     public static class Running
     {
-        public const string Version = "0.3.2";
+        public const string Version = "0.4.0";
         internal const string Id = "smoothrunning";
         static Harmony harmony;
         static Mod mod;
         internal static Toggle terrain, handlers, scenes, motion, blend, ahead, warpTerrain, launchTerrain;
         internal static Slider shutter;
+        // (the fine details, on the page in Keystone's Advanced view; each as installed does what the mod did before them)
+        internal static Slider warpBudget, warpAfter, blendLooks, blendLongest;
         internal static bool motionBroken;
-        /// <summary>How many looks along the way each pixel moved the frame blending takes.</summary>
+        /// <summary>How many looks along the way each pixel moved the frame blending takes at the most, as installed (the shader
+        /// takes no more than 16).</summary>
         internal const int Looks = 12;
+
+        internal static float Of(Slider slider, float installed) => slider != null ? (float)slider : installed;
+
+        /// <summary>The settings added after Fine(true) are fine details: on the page only in Keystone's Advanced view, until Fine(false).
+        /// (Keystone 0.11.0 has the two views; an older one has neither call, and shows the fine details with the rest.)</summary>
+        static void Fine(bool fine) { try { if (fine) Advanced(mod); else Simple(mod); } catch (Exception) { } }
+        [MethodImpl(MethodImplOptions.NoInlining)] static void Advanced(Mod page) => page.Advanced();
+        [MethodImpl(MethodImplOptions.NoInlining)] static void Simple(Mod page) => page.Simple();
 
         public static void Setup()
         {
@@ -54,8 +65,16 @@ namespace SmoothRunning
                 blend = mod.Toggle("blend", "Frame blending", true, "Each frame blended along the way each thing in it moved since the last one, as a film camera's shutter blends it: at a low frame rate the jumps between frames read as motion, not as a string of stills. The ground and sky stream past; the craft the camera follows moves with it and stays sharp. At sixty frames a second it is slight, at ten long. Off: each frame as sharp as the game draws it.");
                 ahead = mod.Toggle("ahead", "The first lift-off's code made ready", true, "The game's code is compiled the first time it runs, and a game's first lift-off runs some 140 of its methods for the first time, 11 ms of compiling in the busiest frames of a flight (and the smoke's, flames' and lamps' mods 21 ms more, where they are installed). With this on they are compiled a few seconds into the first flight scene instead, a little in each frame. Off: as the game has it.");
                 warpTerrain = mod.Toggle("warpterrain", "The terrain spread over frames under time warp", true, "The game lets a world's terrain take up to a tenth of a second of any frame building the ground it needs, and under time warp, with the craft racing over the ground, it does at every change of the rate: frames of a tenth of a second and more, the picture stopping. With this on, while time is warped on rails (where nothing meets the ground) and for a few seconds after, high up, it takes at most 8 ms of a frame, its building going on in the frames after; the nearest ground first, as the game has it. Off: as the game has it.");
+                Fine(true);
+                warpBudget = mod.Slider("warpbudget", "Its share of a frame", 8f, 2f, 50f, " ms", 0, "Under time warp, how much of a frame a world's terrain may take building the ground it needs, the rest going on in the frames after: less, smoother frames and the far ground built later; the game's own is 100 ms.");
+                warpAfter = mod.Slider("warpafter", "And for so long after a warp", 5f, 0f, 30f, " s", 0, "How long after time warp ends the terrain keeps that share, while the craft is more than 10 km up.");
+                Fine(false);
                 launchTerrain = mod.Toggle("launchterrain", "A launch's terrain built once", true, "Setting a craft on its launch site, the game builds the home world's terrain round the site, a second and more, and then tells every world's terrain to start again: the one just built is thrown away and built a second time on the spot. With this on, that second time is left out. Off: as the game has it.");
                 shutter = mod.Slider("shutter", "Frame blending: shutter", 180f, 45f, 360f, " degrees", 0, "How much of each frame's motion is blended, as a film camera's shutter angle: 180 degrees (half of it) is a film's, 360 all of it (the smoothest), 90 a sharper look.");
+                Fine(true);
+                blendLooks = mod.Slider("looks", "Frame blending: looks along the way", Looks, 2f, 16f, "", 0, "How many looks along the way each pixel moved the blending takes at the most (as many as a smear needs, one for every two and a half pixels of it): more, smoother long smears; each look is two reads of the picture.");
+                blendLongest = mod.Slider("longest", "Frame blending: longest smear", 0.1f, 0.02f, 0.3f, "", 2, "How long a smear may be, as a share of the picture's height: what whips across the view is blended no further than this.");
+                Fine(false);
                 mod.Panel = Readout;
             }
             harmony = new Harmony(Id);

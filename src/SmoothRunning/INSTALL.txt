@@ -16,7 +16,7 @@ What it mends:
   * (0.3.0) a launch's terrain built once, not twice: about a second off every launch.
 
 INSTALL
-  This mod needs Keystone 0.9 or later, the base it stands on, and Harmony (HarmonyKSP), which are
+  This mod needs Keystone 0.11 or later, the base it stands on, and Harmony (HarmonyKSP), which are
   separate downloads:
     https://spacedock.info/mod/4665/Keystone
     https://github.com/KSPModdingLibs/HarmonyKSP

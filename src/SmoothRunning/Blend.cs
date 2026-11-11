@@ -227,7 +227,7 @@ namespace SmoothRunning
                     material.SetVector(idPrevAhead, new Vector4(prevAhead.x, prevAhead.y, prevAhead.z, cam.pixelHeight));
                     material.SetVector(idMoved, new Vector4((float)moved.x, (float)moved.y, (float)moved.z, (float)ground));
                     material.SetVector(idCam, new Vector4((float)camRel.x, (float)camRel.y, (float)camRel.z, body.pqsController != null || body.ocean ? 1f : 0f));
-                    material.SetVector(idShutter, new Vector4(shutter, Running.Looks, 0.1f, cam.aspect));
+                    material.SetVector(idShutter, new Vector4(shutter, Running.Of(Running.blendLooks, Running.Looks), Running.Of(Running.blendLongest, 0.1f), cam.aspect));
                     first.Give(material);
                     second.Give(material);
                     pass.GetTemporaryRT(idScene, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.DefaultHDR);
